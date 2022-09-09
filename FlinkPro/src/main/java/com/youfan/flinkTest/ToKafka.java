@@ -8,6 +8,7 @@ import com.youfan.udf.MyDebezium;
 import com.youfan.util.MyKafkaUtil;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
@@ -15,6 +16,7 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 import org.apache.flink.streaming.connectors.kafka.KafkaSerializationSchema;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
@@ -43,8 +45,8 @@ public class ToKafka {
             env.setStateBackend(new FsStateBackend("hdfs://iZrioqk6b370kwZ:8020/flinkCDC"));
             //2.6 设置访问HDFS的用户名
             System.setProperty("HADOOP_USER_NAME", "root");
-            env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
-            env.getCheckpointConfig().setCheckpointTimeout(60000);
+            env.getCheckpointConfig().setMaxConcurrentCheckpoints(2);
+            env.getCheckpointConfig().setCheckpointTimeout(10000);
             env.getCheckpointConfig().setMinPauseBetweenCheckpoints(500);
 
 
@@ -81,16 +83,15 @@ public class ToKafka {
             });
 
             mapStream.print("转换数据");
+            
+            mapStream.addSink(new FlinkKafkaProducer<String>("iZrioqk6b370kwZ:9092","aaatest",new SimpleStringSchema()));
 
-
-//            mapStream.addSink(new FlinkKafkaProducer<String>("iZrioqk6b370kwZ:9092","Mytest",new SimpleStringSchema()));
-
-        mapStream.addSink(MyKafkaUtil.getKafkaSinkBySchema(new KafkaSerializationSchema<String>() {
-            @Override
-            public ProducerRecord<byte[], byte[]> serialize(String element, @Nullable Long timestamp) {
-                return new ProducerRecord<>(JSONObject.parseObject(element).getString("table"),element.getBytes());
-            }
-        }));
+//        mapStream.addSink(MyKafkaUtil.getKafkaSinkBySchema(new KafkaSerializationSchema<String>() {
+//            @Override
+//            public ProducerRecord<byte[], byte[]> serialize(String element, @Nullable Long timestamp) {
+//                return new ProducerRecord<>(JSONObject.parseObject(element).getString("table"),element.getBytes());
+//            }
+//        }));
 
 
 

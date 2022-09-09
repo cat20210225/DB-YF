@@ -18,6 +18,10 @@ public class RedisTest {
         String aa = jedis.set("aa", "11");
         jedis.expire("aa",10*60);
         System.out.println(jedis.get("aa"));
+        jedis.expire("a",10);
+        jedis.resetState();
+
+
 //        jedis.expire()  --设置过期时间
 //        jedis.ttl()  --查看过期时间
 //        set

@@ -27,7 +27,7 @@ public class IpBelongUDF extends UDF {
 
     private void LoadIPLocation() {
         Configuration conf = new Configuration();
-        String uri = "hdfs://172.16.2.181:8020/data/tmp/ip.merge.txt";;
+        String uri = "hdfs://121.41.82.106:8020/data/tmp/ip.merge.txt";;
         FileSystem fs = null;
         FSDataInputStream in = null;
         BufferedReader d = null;
@@ -138,10 +138,10 @@ public class IpBelongUDF extends UDF {
 
     }
 
-//    public static void main(String[] args) {
-//        IpBelongUDF ipBelongUDF = new IpBelongUDF();
-//        String evaluate = ipBelongUDF.evaluate("1.0.1.0");
-//        System.out.println("evaluate = " + evaluate);
-//    }
+    public static void main(String[] args) {
+        IpBelongUDF ipBelongUDF = new IpBelongUDF();
+        String evaluate = ipBelongUDF.evaluate("1.0.1.0");
+        System.out.println("evaluate = " + evaluate);
+    }
 
 }
