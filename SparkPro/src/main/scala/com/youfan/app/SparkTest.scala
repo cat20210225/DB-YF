@@ -16,6 +16,10 @@ object SparkTest {
     sc.setCheckpointDir("E:\\idea\\DB-YF\\sparkck")
 
     val value = sc.textFile("E:\\idea\\DB-YF\\test.txt")
+      /**
+       *
+       */
+//    val rdd = sc.textFile("hdfs://lijie:9000/checkpoint0727/c1a51ee9-1daf-4169-991e-b290f88bac20/rdd-0/part-00000").flatMap(_.split(" ")).map((_,1)).reduceByKey(_+_)
     /**
      * 偏函数写法map {
      * case a => (a, 1)

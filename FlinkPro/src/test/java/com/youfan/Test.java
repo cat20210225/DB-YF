@@ -32,7 +32,7 @@ public class Test {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(1);
 
-        System.setProperty("HADOOP_USER_NAME", "root");
+//        System.setProperty("HADOOP_USER_NAME", "root");
 
 //        Properties properties = new Properties();
 //        properties.setProperty("debezium.snapshot.locking.mode", "none");
@@ -42,7 +42,7 @@ public class Test {
                 .hostname("120.26.1.207")
                 .port(17477)
                 .database("UFO_SCM_ZJFanKa") // monitor sqlserver database
-                .tableList("dbo.PO_MtPurchaseSub") // monitor products table
+                .tableList("dbo.ro_salesorder") // monitor products table
                 .username("scm")
                 .password("HoIhrR64kTwZnCz9")
                 .startupOptions(StartupOptions.initial())
@@ -52,30 +52,30 @@ public class Test {
 
         DataStreamSource<String> dataStreamSource = env.addSource(sourceFunction);
 
-
-        String outputPath = "hdfs://121.41.82.106:8020/flink/flinkcdc";
-        BucketingSink hadoopSink = new BucketingSink<String>(outputPath);
-        // 使用表名命名存储区
-        hadoopSink.setBucketer(new Bucketer() {
-            @Override
-            public Path getBucketPath(Clock clock, Path path, Object o) {
-                String table = JSONObject.parseObject((String) o).getString("table");
-                return new Path(outputPath + "/" + table);
-            }
-        });
-        // 下述两种条件满足其一时，创建新的块文件
-        // 条件1.设置块大小为100MB
-        hadoopSink.setBatchSize(1024 * 1024 * 100);
-        // 条件2.设置时间间隔20min
-        hadoopSink.setBatchRolloverInterval(20 * 60 * 1000);
-        //设置的是检查两次检查桶不活跃的情况的周期
-        hadoopSink.setInactiveBucketCheckInterval(5L);
-        //设置的是关闭不活跃桶的阈值,多久时间没有数据写入就关闭桶
-        hadoopSink.setInactiveBucketThreshold(10L);
-        hadoopSink.setPartPrefix("ods");
-        hadoopSink.setPartSuffix(".txt");
-
-        dataStreamSource.addSink(hadoopSink);
+        dataStreamSource.print();
+//        String outputPath = "hdfs://121.41.82.106:8020/flink/flinkcdc";
+//        BucketingSink hadoopSink = new BucketingSink<String>(outputPath);
+//        // 使用表名命名存储区
+//        hadoopSink.setBucketer(new Bucketer() {
+//            @Override
+//            public Path getBucketPath(Clock clock, Path path, Object o) {
+//                String table = JSONObject.parseObject((String) o).getString("table");
+//                return new Path(outputPath + "/" + table);
+//            }
+//        });
+//        // 下述两种条件满足其一时，创建新的块文件
+//        // 条件1.设置块大小为100MB
+//        hadoopSink.setBatchSize(1024 * 1024 * 100);
+//        // 条件2.设置时间间隔20min
+//        hadoopSink.setBatchRolloverInterval(20 * 60 * 1000);
+//        //设置的是检查两次检查桶不活跃的情况的周期
+//        hadoopSink.setInactiveBucketCheckInterval(5L);
+//        //设置的是关闭不活跃桶的阈值,多久时间没有数据写入就关闭桶
+//        hadoopSink.setInactiveBucketThreshold(10L);
+//        hadoopSink.setPartPrefix("ods");
+//        hadoopSink.setPartSuffix(".txt");
+//
+//        dataStreamSource.addSink(hadoopSink);
         env.execute();
     }
 }

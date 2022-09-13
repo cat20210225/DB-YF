@@ -7,11 +7,12 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="UDFPro" />
-        <module name="FlinkPro" />
-        <module name="Publisher" />
         <module name="SparkPro" />
+        <module name="Publisher" />
+        <module name="FlinkPro" />
         <module name="PdPro" />
+        <module name="UDFPro" />
+        <module name="FlumeInterceptor" />
       </profile>
     </annotationProcessing>
   </component>

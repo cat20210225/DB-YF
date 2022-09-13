@@ -13,6 +13,7 @@
         <module>SparkPro</module>
         <module>UDFPro</module>
         <module>PdPro</module>
+        <module>FlumeInterceptor</module>
     </modules>
 
 

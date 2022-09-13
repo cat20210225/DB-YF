@@ -84,7 +84,7 @@ public class ToKafka {
 
             mapStream.print("转换数据");
             
-            mapStream.addSink(new FlinkKafkaProducer<String>("iZrioqk6b370kwZ:9092","aaatest",new SimpleStringSchema()));
+            mapStream.addSink(new FlinkKafkaProducer<String>("iZrioqk6b370kwZ:9092","bbbtest",new SimpleStringSchema()));
 
 //        mapStream.addSink(MyKafkaUtil.getKafkaSinkBySchema(new KafkaSerializationSchema<String>() {
 //            @Override
