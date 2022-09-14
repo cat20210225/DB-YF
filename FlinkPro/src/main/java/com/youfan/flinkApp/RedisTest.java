@@ -1,4 +1,4 @@
-package com.youfan.flinkTest;
+package com.youfan.flinkApp;
 
 import redis.clients.jedis.Jedis;
 

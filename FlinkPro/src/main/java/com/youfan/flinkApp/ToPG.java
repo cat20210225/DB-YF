@@ -1,4 +1,4 @@
-package com.youfan.flinkTest;
+package com.youfan.flinkApp;
 
 import com.alibaba.fastjson.JSONObject;
 import com.google.gson.Gson;

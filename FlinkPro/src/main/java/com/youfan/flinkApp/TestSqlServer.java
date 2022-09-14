@@ -1,4 +1,4 @@
-package com.youfan.flinkTest;
+package com.youfan.flinkApp;
 
 import com.ververica.cdc.connectors.sqlserver.SqlServerSource;
 import com.ververica.cdc.connectors.sqlserver.table.StartupOptions;

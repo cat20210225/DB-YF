@@ -1,11 +1,9 @@
-package com.youfan.flinkTest;
+package com.youfan.flinkApp;
 
 import com.alibaba.fastjson.JSONObject;
-import com.sun.istack.Nullable;
 import com.ververica.cdc.connectors.sqlserver.SqlServerSource;
 import com.ververica.cdc.connectors.sqlserver.table.StartupOptions;
 import com.youfan.udf.MyDebezium;
-import com.youfan.util.MyKafkaUtil;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
@@ -17,8 +15,6 @@ import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
-import org.apache.flink.streaming.connectors.kafka.KafkaSerializationSchema;
-import org.apache.kafka.clients.producer.ProducerRecord;
 
 public class ToKafka {
     public static void main(String[] args) throws Exception {
@@ -64,27 +60,27 @@ public class ToKafka {
 
             DataStreamSource<String> dataStreamSource = env.addSource(sourceFunction);
 
-            SingleOutputStreamOperator<String> mapStream = dataStreamSource.map(new MapFunction<String, String>() {
-                @Override
-                public String map(String value) throws Exception {
-                    JSONObject jsonObject = JSONObject.parseObject(value);
+//            SingleOutputStreamOperator<String> mapStream = dataStreamSource.map(new MapFunction<String, String>() {
+//                @Override
+//                public String map(String value) throws Exception {
+//                    JSONObject jsonObject = JSONObject.parseObject(value);
+//
+//                    JSONObject json = new JSONObject();
+//                    json.put("database",jsonObject.getString("database"));
+//                    json.put("id",JSONObject.parseObject(jsonObject.getString("data")).getString("Id"));
+//                    json.put("age",JSONObject.parseObject(jsonObject.getString("data")).getInteger("Age"));
+//                    json.put("name",JSONObject.parseObject(jsonObject.getString("data")).getString("Name"));
+//                    json.put("type",jsonObject.getString("type"));
+//                    json.put("table",jsonObject.getString("table"));
+//
+//
+//                    return json.toString();
+//                }
+//            });
 
-                    JSONObject json = new JSONObject();
-                    json.put("database",jsonObject.getString("database"));
-                    json.put("id",JSONObject.parseObject(jsonObject.getString("data")).getString("Id"));
-                    json.put("age",JSONObject.parseObject(jsonObject.getString("data")).getInteger("Age"));
-                    json.put("name",JSONObject.parseObject(jsonObject.getString("data")).getString("Name"));
-                    json.put("type",jsonObject.getString("type"));
-                    json.put("table",jsonObject.getString("table"));
+        dataStreamSource.print("转换数据");
 
-
-                    return json.toString();
-                }
-            });
-
-            mapStream.print("转换数据");
-            
-            mapStream.addSink(new FlinkKafkaProducer<String>("iZrioqk6b370kwZ:9092","bbbtest",new SimpleStringSchema()));
+        dataStreamSource.addSink(new FlinkKafkaProducer<String>("iZrioqk6b370kwZ:9092","bbbtest",new SimpleStringSchema()));
 
 //        mapStream.addSink(MyKafkaUtil.getKafkaSinkBySchema(new KafkaSerializationSchema<String>() {
 //            @Override

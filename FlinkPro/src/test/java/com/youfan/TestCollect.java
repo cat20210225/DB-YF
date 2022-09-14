@@ -1,35 +1,32 @@
 package com.youfan;
 
 import com.alibaba.fastjson.JSONObject;
-import com.sun.istack.Nullable;
+import com.ververica.cdc.connectors.postgres.PostgreSQLSource;
 import com.ververica.cdc.connectors.sqlserver.SqlServerSource;
 import com.ververica.cdc.connectors.sqlserver.table.StartupOptions;
-import com.youfan.flinkTest.DataSourcePro;
-import com.youfan.udf.MyDebezium;
+import com.youfan.flinkApp.DataSourcePro;
 import com.youfan.udf.MyDebezium1;
-import com.youfan.util.MyKafkaUtil;
-import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
+import org.apache.flink.api.common.state.BroadcastState;
+import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
-import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.datastream.DataStreamSource;
-import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.streaming.api.datastream.*;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
-import org.apache.flink.streaming.connectors.kafka.KafkaSerializationSchema;
+import org.apache.flink.util.Collector;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -55,15 +52,33 @@ public class TestCollect {
         //2.5 设置状态后端
         SimpleDateFormat sdf1= new SimpleDateFormat("yyyy-MM-dd-HH");
         String date = sdf1.format(new Date());
-        String path = "hdfs://121.41.82.106:8020/flink/flinkcdc/ck/"+date;
+        String path = "hdfs://121.41.82.106:8020/flume/ck/"+date;
         env.setStateBackend(new FsStateBackend(path));
         //2.6 设置访问HDFS的用户名
         System.setProperty("HADOOP_USER_NAME", "root");
         env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
-        //超时时间30秒
+        //超时时间8分钟
         env.getCheckpointConfig().setCheckpointTimeout(TimeUnit.MINUTES.toMillis(8));
-        //两个checkpoint间隔最小为500毫秒（第一个ck结束后至少过5毫秒才开始下一个ck）
+        //两个checkpoint间隔最小为500毫秒（第一个ck结束后至少过3分钟才开始下一个ck）
         env.getCheckpointConfig().setMinPauseBetweenCheckpoints(TimeUnit.MINUTES.toMillis(3));
+
+        //todo 广播流
+        SourceFunction<String> pgSource = PostgreSQLSource.<String>builder()
+                .hostname("121.41.82.106")
+                .port(45565)
+                .database("postgres") // monitor postgres database
+                .schemaList("db_model")  // monitor inventory schema
+                .tableList("db_model.tenant_test","db_model.dict_tenant_data_source_test") // monitor products table
+                .username("postgres")
+                .password("Qweasd987@#")
+                .decodingPluginName("pgoutput")
+                .deserializer(new MyDebezium1()) // converts SourceRecord to JSON String
+                .build();
+
+        DataStreamSource<String> pgStream = env.addSource(pgSource);
+
+        MapStateDescriptor<String, String> mapStateDescriptor = new MapStateDescriptor<>("guid",String.class,String.class);
+        BroadcastStream<String> broadcastStream = pgStream.broadcast(mapStateDescriptor);
 
 
 //        todo 加载主流配置文件
@@ -118,9 +133,42 @@ public class TestCollect {
             }
         }
 
-        unionds.print("转换数据");  
+        BroadcastConnectedStream<String, String> connectDS = unionds.connect(broadcastStream);
+        SingleOutputStreamOperator<String> processDS = connectDS.process(new BroadcastProcessFunction<String, String, String>() {
+            @Override
+            public void processElement(String value, ReadOnlyContext ctx, Collector<String> out) throws Exception {
+                ReadOnlyBroadcastState<String, String> broadcastState = ctx.getBroadcastState(mapStateDescriptor);
+                JSONObject jsonObject = JSONObject.parseObject(value);
+                String database = jsonObject.getString("database");
+                String guid = broadcastState.get(database);
+                String tenantid = broadcastState.get(database+"_db");
+                if (guid != null) {
+                    jsonObject.put("database", guid);
+//                    out.collect(jsonObject.toJSONString());
+                }
+                if (tenantid != null){
+                    jsonObject.put("tenantid", tenantid);
+                }
+                out.collect(jsonObject.toJSONString());
+            }
 
-        unionds.addSink(new FlinkKafkaProducer<String>("iZrioqk6b370kwZ:9092","bbbtest",new SimpleStringSchema()));
+            @Override
+            public void processBroadcastElement(String value, Context ctx, Collector<String> out) throws Exception {
+                JSONObject jsonObject = JSONObject.parseObject(value);
+                String dataBase = jsonObject.getString("DataBase");
+                String db_name = jsonObject.getString("db_name");
+                String tenant_id = jsonObject.getString("tenant_id");
+                String guid = jsonObject.getString("guid");
+                BroadcastState<String, String> broadcastState = ctx.getBroadcastState(mapStateDescriptor);
+                broadcastState.put(dataBase, guid);
+                broadcastState.put(db_name+"_db",tenant_id);
+
+            }
+        });
+
+        processDS.print("转换数据");
+
+        processDS.addSink(new FlinkKafkaProducer<String>("iZrioqk6b370kwZ:9092","bbbtest",new SimpleStringSchema()));
 
 //        unionds.addSink(MyKafkaUtil.getKafkaSinkBySchema(new KafkaSerializationSchema<String>() {
 //            @Override

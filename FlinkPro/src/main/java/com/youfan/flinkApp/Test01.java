@@ -1,4 +1,4 @@
-package com.youfan.flinkTest;
+package com.youfan.flinkApp;
 
 
 public class Test01 {

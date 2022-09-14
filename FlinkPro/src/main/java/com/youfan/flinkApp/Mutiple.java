@@ -1,4 +1,4 @@
-package com.youfan.flinkTest;
+package com.youfan.flinkApp;
 
 import com.youfan.util.SinkUtil;
 import com.youfan.util.SourceUtil;

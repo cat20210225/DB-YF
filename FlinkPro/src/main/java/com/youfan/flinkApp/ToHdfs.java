@@ -1,4 +1,4 @@
-package com.youfan.flinkTest;
+package com.youfan.flinkApp;
 
 import com.alibaba.fastjson.JSONObject;
 import com.ververica.cdc.connectors.postgres.PostgreSQLSource;
@@ -6,27 +6,19 @@ import com.ververica.cdc.connectors.sqlserver.SqlServerSource;
 import com.ververica.cdc.connectors.sqlserver.table.StartupOptions;
 import com.youfan.udf.MyDebezium1;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
-import org.apache.flink.api.common.serialization.SimpleStringEncoder;
 import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
-import org.apache.flink.connector.file.sink.FileSink;
-import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.*;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
-import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
-import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
-import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.SimpleVersionedStringSerializer;
-import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.DefaultRollingPolicy;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.connectors.fs.Clock;
 import org.apache.flink.streaming.connectors.fs.bucketing.Bucketer;
 import org.apache.flink.streaming.connectors.fs.bucketing.BucketingSink;
-import org.apache.flink.streaming.connectors.fs.bucketing.DateTimeBucketer;
 import org.apache.flink.util.Collector;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -37,7 +29,6 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.text.SimpleDateFormat;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -52,8 +43,8 @@ public class ToHdfs {
 
 
         //2.Flink-CDC将读取binlog的位置信息以状态的方式保存在CK,如果想要做到断点续传,需要从Checkpoint或者Savepoint启动程序
-        //2.1 开启Checkpoint,每隔30秒做一次CK
-        env.enableCheckpointing(TimeUnit.MINUTES.toMillis(8));
+        //2.1 开启Checkpoint,每隔5分钟做一次CK
+        env.enableCheckpointing(TimeUnit.MINUTES.toMillis(5));
         //2.2 指定CK的一致性语义
         env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
         //2.3 设置任务关闭的时候保留最后一次C+K数据
@@ -69,9 +60,9 @@ public class ToHdfs {
         System.setProperty("HADOOP_USER_NAME", "root");
         env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
         //超时时间30秒
-        env.getCheckpointConfig().setCheckpointTimeout(TimeUnit.MINUTES.toMillis(10));
+        env.getCheckpointConfig().setCheckpointTimeout(TimeUnit.MINUTES.toMillis(8));
         //两个checkpoint间隔最小为500毫秒（第一个ck结束后至少过5毫秒才开始下一个ck）
-        env.getCheckpointConfig().setMinPauseBetweenCheckpoints(TimeUnit.MINUTES.toMillis(4));
+        env.getCheckpointConfig().setMinPauseBetweenCheckpoints(TimeUnit.MINUTES.toMillis(3));
 
         //todo 广播流
         SourceFunction<String> pgSource = PostgreSQLSource.<String>builder()
