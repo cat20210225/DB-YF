@@ -90,8 +90,6 @@ public class ToKafka {
 //        }));
 
 
-
-
             env.execute();
 
     }

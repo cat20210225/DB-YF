@@ -38,6 +38,8 @@ public class MyInterceptor implements Interceptor {
 
         String table = jsonObject.getString("table");
         headers.put("table",table);
+        jsonObject.remove("table");
+        event.setBody(jsonObject.toString().getBytes());
 
         return event;
     }

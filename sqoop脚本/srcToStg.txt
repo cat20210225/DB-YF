@@ -1,0 +1,154 @@
+#!/bin/bash
+#######################################################################################
+# Script: srcToStg.sh
+# Author        : konglei
+# Date          : 2022-05-09
+# Version       : V1.0.0
+# Last Rev Date : 2022-05-09
+#
+#Note:
+#######################################################################################
+#Usage:#                        data: srcToStg
+#######################################################################################
+#文件路径
+FileConf="data/conf"
+#SqoopLogs="data/logs/my_sqoop_log"
+
+#获取系统日期
+#biz_date=`date +"%Y%m%d"`
+sys_dt=$(date "+%Y-%m-%d")
+#sys_tm=$(echo `date "+%Y-%m-%d"` 00:00:00)
+
+#同步表清单(空格分开)
+array_tables=`cat $FileConf/sync_srcToStg_tables.txt`
+
+#读取客户业务库连接信息
+#_ConnPostgres $pg_user $pg_dbname "select id as tenantid,ipaddr,port,dbname,username,passwd from db_sched.job_custinfo where isvalid = 1 and issync = 1"|sed 's/tenantid ipaddr port dbname username passwd //g' > $FileConf/sync_tenants.txt
+
+########多线程和并发控制########
+#设置最大并发数
+Thread_num=5
+
+#创建有名管道文件
+[ -e /tmp/fd.fifo ] || mkfifo /tmp/fd.fifo
+
+#使用句柄，以可读(<)可写(>)的方式关联管道文件
+exec 8<>/tmp/fd.fifo
+
+#关联后的文件描述符拥有管道文件的所有特性，所以这时候管道文件可以删除
+rm -rf /tmp/fd.fifo
+
+for i in `seq $Thread_num`
+do
+    echo >&8 #向管道放入一个令牌
+done
+
+#备份旧的IFS变量
+OLDIFS="$IFS"
+
+#修改分隔符为换行符
+IFS=$'\n'
+
+#统计客户数
+#cnt=`wc -l < $FileConf/sync_tenants.txt`
+cnt=`cat $FileConf/sync_tenants.txt | awk 'END{print NR}'`
+
+###############################################################################
+#时间变量
+start_time=$(date "+%Y-%m-%d %H:%M:%S")
+all_start=`date "+%s"`
+
+echo "************************ 同步开始: ${start_time} ************************"
+
+#指定hive数据库名
+hive_dbname='db_stg'
+
+#多客户数据同步
+for ((i=1;i<=$cnt;i++)) #循环读取客户数据库连接信息配置文件
+do
+
+read -u8  #从管道中读取一个令牌
+
+{
+
+cust_id=`printf "%06d" $i`
+echo "*****************$cust_id*****************"
+tenants=`cat $FileConf/sync_tenants.txt|sed -n "/${cust_id}/p"`
+echo "=============================$tenants==============================="
+
+IFS=" " #修改分隔符为空格
+
+#赋值变量
+#read id tenantid ip_address conn_port mssql_dbname user_name user_passwd < <(echo $tenants)
+tenantid=`echo $tenants | awk '{print $2}'`
+ip_address=`echo $tenants | awk '{print $3}'`
+conn_port=`echo $tenants | awk '{print $4}'`
+mssql_dbname=`echo $tenants | awk '{print $5}'`
+user_name=`echo $tenants | awk '{print $6}'`
+user_passwd=`echo $tenants | awk '{print $7}'`
+echo "====== ${tenantid} | ${ip_address} | ${conn_port} | ${mssql_dbname} | ${user_name} | ${user_passwd} ======"
+
+#将SqlServer数据库中的表数据导入到hive中
+for tables in ${array_tables}
+do
+
+#if [ -e /data/sync/${tables}.java ];then
+#   rm -rf /data/sync/${tables}.java
+#fi
+
+#先删除存在的租户分区
+#echo hive -e "use ${hive_dbname};alter table ${hive_dbname}.stg_${tables} drop partition(tenantid='${tenantid}')";
+#hive -e "use ${hive_dbname};alter table ${hive_dbname}.stg_${tables} drop partition(tenantid='${tenantid}')";
+
+#全量同步
+sqoop import "-Dorg.apache.sqoop.splitter.allow_text_splitter=true" "-fetch-size=10000" \
+--connect "jdbc:sqlserver://${ip_address}:${conn_port};database=${mssql_dbname}" \
+--username ${user_name} \
+--password ${user_passwd} \
+--target-dir "hdfs://nameservice1/user/hive/warehouse/${hive_dbname}.db/stg_${tables}/tenantid=${tenantid}" \
+--table ${tables} \
+--hive-database ${hive_dbname} \
+--hive-import \
+--hive-table stg_${tables} \
+--map-column-hive RowVersion=string \
+--hive-partition-key tenantid \
+--hive-partition-value ${tenantid} \
+--hive-drop-import-delims \
+--fields-terminated-by '\001' \
+--null-string '\\N' \
+--null-non-string '\\N' \
+--delete-target-dir \
+--m 4 \
+--split-by CreateTime
+#${SqoopLogs}/sqoop_srcToStg.log 2>&1
+
+#判断sqoop执行结果,失败写入日志,继续执行下一张表
+if [ $? -ne 0 ]; then
+        echo "error----${tables} import error--exit---$(date +%F%n%T)!"
+        continue
+        # exit
+else
+        echo "${tables} import Successfully $(date +%F%n%T)!"
+fi
+
+done
+
+echo >&8
+
+}&
+
+done
+wait #等待所有后台进程结束
+exec 8<&- #关闭文件描述符的读
+exec 8>&- #关闭文件描述符的写
+
+#上传日志文件到hdfs
+#hdfs dfs -put ${SqoopLogs}/sqoop_srcToStg.log /data/dolphinscheduler/dolphinscheduler/resources/data/logs/my_sqoop_log
+
+###############################################################################
+#时间变量
+end_time=$(date "+%Y-%m-%d %H:%M:%S")
+all_end=`date "+%s"`
+
+echo "************************ 同步结束：${end_time} ************************"
+echo "******************* 总耗时: `expr ${all_end} - ${all_start}`s ********************"

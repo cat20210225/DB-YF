@@ -4,17 +4,19 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Date;
+
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 
 public class TestBean {
-    public String database;
     public String id;
-    public  int age;
-    public String name;
-    public String type;
-    public String table;
+    public Long total_amount=0L;
+    public String is_new;
+    public Long pro_cnt=0L;
+    public String tm;
+    public Date date;
 
 }
