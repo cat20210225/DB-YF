@@ -14,8 +14,10 @@ import java.util.Date;
 @AllArgsConstructor
 public class ProductStats {
     public String id;
+    @Builder.Default
     public Long total_amount=0L;
     public String is_new;
+    @Builder.Default
     public Long pro_cnt=0L;
     public String tm;
     public Date date;

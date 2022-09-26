@@ -36,30 +36,30 @@ public class Flink_Flume_Hdfs {
     public static void main(String[] args) throws Exception {
 
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setParallelism(3);
+        env.setParallelism(5);
 
 
         //2.Flink-CDC将读取binlog的位置信息以状态的方式保存在CK,如果想要做到断点续传,需要从Checkpoint或者Savepoint启动程序
-        //2.1 开启Checkpoint,每隔1分钟做一次CK
-        env.enableCheckpointing(TimeUnit.MINUTES.toMillis(1));
+        //2.1 开启Checkpoint,每隔5分钟做一次CK
+        env.enableCheckpointing(TimeUnit.MINUTES.toMillis(5));
         //2.2 指定CK的一致性语义
         env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
         //2.3 设置任务关闭的时候保留最后一次C+K数据
         env.getCheckpointConfig().enableExternalizedCheckpoints(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
         //2.4 指定从CK自动重启策略
-        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(3, 30000L));
+        env.setRestartStrategy(RestartStrategies.fixedDelayRestart(3, 60000L));
         //2.5 设置状态后端
         SimpleDateFormat sdf1= new SimpleDateFormat("yyyy-MM-dd-HH");
         String date = sdf1.format(new Date());
-        String path = "hdfs://121.41.82.106:8020/flume/ck/"+date;
+        String path = "hdfs://121.41.82.106:9002/flume/ck/"+date;
         env.setStateBackend(new FsStateBackend(path));
         //2.6 设置访问HDFS的用户名
         System.setProperty("HADOOP_USER_NAME", "root");
         env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
-        //超时时间3分钟
-        env.getCheckpointConfig().setCheckpointTimeout(TimeUnit.MINUTES.toMillis(3));
-        //两个checkpoint间隔最小为1分钟（第一个ck结束后至少过1分钟才开始下一个ck）
-        env.getCheckpointConfig().setMinPauseBetweenCheckpoints(TimeUnit.MINUTES.toMillis(1));
+        //超时时间8分钟
+        env.getCheckpointConfig().setCheckpointTimeout(TimeUnit.MINUTES.toMillis(8));
+        //两个checkpoint间隔最小为5分钟（第一个ck结束后至少过1分钟才开始下一个ck）
+        env.getCheckpointConfig().setMinPauseBetweenCheckpoints(TimeUnit.MINUTES.toMillis(5));
 
         //todo 广播流
         SourceFunction<String> pgSource = PostgreSQLSource.<String>builder()
@@ -82,7 +82,7 @@ public class Flink_Flume_Hdfs {
 
 //        todo 加载主流配置文件
         ArrayList<String> list = new ArrayList<>();
-        String uri = "hdfs://121.41.82.106:8020/flink/flinkcdc/useripconf3.txt";
+        String uri = "hdfs://121.41.82.106:9002/files/useripconf2.txt";
         org.apache.hadoop.conf.Configuration conf = new Configuration();
 //        conf.set("dfs.client.use.datanode.hostname", "true");
         String user ="root";
@@ -121,10 +121,11 @@ public class Flink_Flume_Hdfs {
                     .tableList(dataSourcePro.getTb())
                     .username(dataSourcePro.getUser())
                     .password(dataSourcePro.getPwd())
-                    .startupOptions(StartupOptions.initial())
+                    .startupOptions(StartupOptions.latest())
                     .deserializer(new MyDebezium1())
                     .build();
             DataStreamSource<String> streamSource = env.addSource(sourceFunction);
+
             if (unionds != null) {
                 unionds = streamSource.union(unionds);
             } else {
